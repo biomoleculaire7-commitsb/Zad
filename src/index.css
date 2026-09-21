@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@layer utilities {
+  @media print {
+    html, body, #root {
+      background: white !important;
+      color: black !important;
+      overflow: visible !important;
+      height: auto !important;
+      min-height: 100% !important;
+      position: static !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    /* Hide background headers, footers, search bars, interactive controls */
+    header, 
+    footer, 
+    nav, 
+    #change-grade-stream-btn, 
+    #open-favorites-btn, 
+    #search-lessons-input, 
+    .no-print,
+    button,
+    iframe {
+      display: none !important;
+    }
+
+    /* Un-constrain fixed dialogs when printing */
+    div[role="dialog"],
+    .fixed {
+      position: static !important;
+      width: 100% !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+      background: white !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .printable-content {
+      display: block !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+
+    /* Page break helpers */
+    .page-break {
+      page-break-before: always;
+      break-before: page;
+    }
+  }
+}
+
