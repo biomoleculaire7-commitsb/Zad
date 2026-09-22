@@ -1,4 +1,2 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://najahi-web-6g8n-adda-amar-s-projects.vercel.app/sitemap.xml
