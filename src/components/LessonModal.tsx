@@ -40,7 +40,12 @@ import {
   Link2,
   Tv,
   Copy,
-  Plus
+  Plus,
+  Eye,
+  EyeOff,
+  CheckSquare,
+  Square,
+  Filter
 } from 'lucide-react';
 
 interface LessonModalProps {
@@ -99,6 +104,60 @@ export const LessonModal: React.FC<LessonModalProps> = ({
     teacherName?: string;
   } | null>(null);
   const [playerNotification, setPlayerNotification] = useState<string | null>(null);
+
+  // Exercises state: filters, search, and self-assessment tracking
+  const [exerciseDifficultyFilter, setExerciseDifficultyFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [exerciseSearchQuery, setExerciseSearchQuery] = useState<string>('');
+  const [solvedExercises, setSolvedExercises] = useState<Record<string, boolean>>({});
+  const [exerciseNotice, setExerciseNotice] = useState<string | null>(null);
+
+  // Sync solved exercises with localStorage for learner progression
+  useEffect(() => {
+    if (lesson?.id) {
+      try {
+        const stored = localStorage.getItem(`zad_solved_ex_${lesson.id}`);
+        if (stored) {
+          setSolvedExercises(JSON.parse(stored));
+        } else {
+          setSolvedExercises({});
+        }
+      } catch (e) {
+        setSolvedExercises({});
+      }
+    }
+  }, [lesson?.id]);
+
+  const toggleExerciseSolved = (exerciseId: string) => {
+    setSolvedExercises(prev => {
+      const next = { ...prev, [exerciseId]: !prev[exerciseId] };
+      if (lesson?.id) {
+        try {
+          localStorage.setItem(`zad_solved_ex_${lesson.id}`, JSON.stringify(next));
+        } catch (e) {}
+      }
+      return next;
+    });
+  };
+
+  const toggleAllSolutions = (show: boolean) => {
+    if (!lesson) return;
+    const nextState: Record<string, boolean> = {};
+    lesson.exercises.forEach(ex => {
+      nextState[ex.id] = show;
+    });
+    setRevealedSolutions(nextState);
+  };
+
+  const handleCopyExercise = (ex: Exercise) => {
+    if (navigator.clipboard) {
+      const textToCopy = `【منصة زاد - ${lesson?.title}】\n` +
+        `📝 ${ex.title} (${ex.difficulty}${ex.points ? ` - ${ex.points} نقاط` : ''})\n\n` +
+        `نص التمرين:\n${ex.question}`;
+      navigator.clipboard.writeText(textToCopy);
+      setExerciseNotice('تم نسخ نص التمرين بنجاح إلى الحافظة!');
+      setTimeout(() => setExerciseNotice(null), 3000);
+    }
+  };
 
   // Parse educational video links (YouTube watch/embed/shorts, direct mp4/webm, or web embeds)
   const parseEducationalVideoLink = (input: string): { type: 'youtube' | 'direct' | 'embed'; src: string; id?: string } | null => {
@@ -856,30 +915,30 @@ export const LessonModal: React.FC<LessonModalProps> = ({
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-extrabold text-xs sm:text-sm transition-all relative ${
                 activeTab === 'exercises'
                   ? isStudyMode ? themeClasses.tabActive : 'bg-emerald-700 text-white shadow-md shadow-emerald-700/20'
-                  : isStudyMode ? themeClasses.tabInactive : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : isStudyMode ? themeClasses.tabInactive : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200'
               }`}
             >
               <Award className="w-4 h-4" />
-              <span>تمارين وتطبيقات مع الحل</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/20">
-                {lesson.exercises.length}
+              <span>تمارين وتطبيقات محلولة</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/20 font-bold">
+                {lesson.exercises.length} تمارين
               </span>
             </button>
 
-            {/* 4. Interactive Evaluation Quiz Tab */}
+            {/* 4. Interactive Evaluation Quiz & Formal Exams Tab */}
             <button
               id="tab-quiz-btn"
               onClick={() => setActiveTab('quiz')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-extrabold text-xs sm:text-sm transition-all relative ${
                 activeTab === 'quiz'
                   ? isStudyMode ? themeClasses.tabActive : 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                  : isStudyMode ? themeClasses.tabInactive : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : isStudyMode ? themeClasses.tabInactive : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200'
               }`}
             >
               <HelpCircle className="w-4 h-4" />
-              <span>اختبار تقييمي (Quiz)</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/20">
-                {quizQuestions.length} أسئلة
+              <span>فروض واختبارات تقييمية</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/20 font-bold">
+                {quizQuestions.length} أسئلة + {lesson.exams?.length || 2} مواضيع 20/20
               </span>
             </button>
 
@@ -1466,180 +1525,450 @@ export const LessonModal: React.FC<LessonModalProps> = ({
             {/* ================================================== */}
             {/* TAB 3: EXERCISES WITH STEP-BY-STEP DETAILED SOLUTION */}
             {/* ================================================== */}
-            {activeTab === 'exercises' && (
-              <div className="space-y-6">
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className={fontClasses.heading}>
-                      تمارين وتطبيقات نموذجية للمراجعة
-                    </h3>
-                    <p className={`text-xs ${isStudyMode ? themeClasses.subtleText : 'text-slate-500'}`}>
-                      تمارين محاكية لأسئلة البكالوريا والاختبارات الرسمية مع الحل النموذجي المفصل
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                    {lesson.exercises.length} {lesson.exercises.length === 1 ? 'تمرين' : 'تمارين'}
-                  </span>
-                </div>
+            {activeTab === 'exercises' && (() => {
+              const totalExercises = lesson.exercises.length;
+              const solvedCount = lesson.exercises.filter(e => solvedExercises[e.id]).length;
+              const allSolutionsRevealed = totalExercises > 0 && lesson.exercises.every(e => revealedSolutions[e.id]);
 
-                {/* Exercises List */}
-                <div className="space-y-6">
-                  {lesson.exercises.map((ex, idx) => {
-                    const isSolutionShown = revealedSolutions[ex.id];
-                    const isHintShown = revealedHints[ex.id];
+              const countEasy = lesson.exercises.filter(e => e.difficulty.includes('سهل')).length;
+              const countMedium = lesson.exercises.filter(e => e.difficulty.includes('متوسط')).length;
+              const countHard = lesson.exercises.filter(e => e.difficulty.includes('صعب') || e.difficulty.includes('بكالوريا') || e.difficulty.includes('اختبار')).length;
 
-                    return (
-                      <div key={ex.id} className={`rounded-2xl border overflow-hidden shadow-xs ${
-                        isStudyMode ? themeClasses.card : 'bg-white border-slate-200'
-                      }`}>
-                        
-                        {/* Exercise Header */}
-                        <div className={`px-5 py-3.5 border-b flex flex-wrap items-center justify-between gap-2 ${
-                          isStudyMode ? themeClasses.innerHighlight : 'bg-slate-50 border-slate-200'
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-extrabold flex items-center justify-center">
-                              {idx + 1}
-                            </span>
-                            <span className="font-extrabold text-sm sm:text-base">
-                              {ex.title}
-                            </span>
-                          </div>
+              const filteredExercises = lesson.exercises.filter(ex => {
+                if (exerciseDifficultyFilter === 'easy') {
+                  if (!ex.difficulty.includes('سهل')) return false;
+                } else if (exerciseDifficultyFilter === 'medium') {
+                  if (!ex.difficulty.includes('متوسط')) return false;
+                } else if (exerciseDifficultyFilter === 'hard') {
+                  if (!ex.difficulty.includes('صعب') && !ex.difficulty.includes('بكالوريا') && !ex.difficulty.includes('اختبار')) return false;
+                }
 
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-                              {ex.difficulty}
-                            </span>
-                            {ex.points && (
-                              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                                {ex.points} نقاط
-                              </span>
-                            )}
-                            {ex.bacYear && (
-                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300">
-                                {ex.bacYear}
-                              </span>
-                            )}
-                          </div>
+                if (exerciseSearchQuery.trim()) {
+                  const q = exerciseSearchQuery.trim().toLowerCase();
+                  const matchTitle = ex.title.toLowerCase().includes(q);
+                  const matchQuestion = ex.question.toLowerCase().includes(q);
+                  const matchHint = (ex.hint || '').toLowerCase().includes(q);
+                  if (!matchTitle && !matchQuestion && !matchHint) return false;
+                }
+
+                return true;
+              });
+
+              return (
+                <div className="space-y-6 animate-in fade-in duration-150">
+                  
+                  {/* Notification banner if copied */}
+                  {exerciseNotice && (
+                    <div className="p-3 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center justify-between shadow-md">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>{exerciseNotice}</span>
+                      </div>
+                      <button onClick={() => setExerciseNotice(null)} className="text-white/80 hover:text-white">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Header & Student Progress Bar */}
+                  <div className={`p-5 rounded-2xl border ${
+                    isStudyMode ? themeClasses.innerHighlight : 'bg-gradient-to-r from-emerald-50/80 to-teal-50/60 border-emerald-200/80'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-6 rounded-full bg-emerald-600 inline-block"></span>
+                          <h3 className={fontClasses.heading}>
+                            بنك التمارين والتطبيقات النموذجية الشاملة
+                          </h3>
                         </div>
+                        <p className={`text-xs mt-1 leading-relaxed ${isStudyMode ? themeClasses.subtleText : 'text-slate-600'}`}>
+                          مجموعة تمارين متدرجة من المستوى التطبيقي المباشر إلى مستوى البكالوريا والاختبارات الرسمية مع الحل المفصل والتنقيط الوزاري.
+                        </p>
+                      </div>
 
-                        {/* Question Statement */}
-                        <div className="p-5 space-y-4">
-                          <div className={`${fontClasses.body} whitespace-pre-line font-medium`}>
-                            {ex.question}
+                      {/* Solved Progress Counter */}
+                      <div className="flex flex-col sm:items-end gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 text-xs font-black">
+                          <span className="text-emerald-700 dark:text-emerald-400">
+                            إنجاز الطالب: {solvedCount} من {totalExercises} مكتمل
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                            {totalExercises > 0 ? Math.round((solvedCount / totalExercises) * 100) : 0}%
+                          </span>
+                        </div>
+                        <div className="w-48 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-600 rounded-full transition-all duration-300"
+                            style={{ width: `${totalExercises > 0 ? (solvedCount / totalExercises) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Filter and Control Toolbar */}
+                    <div className="mt-5 pt-4 border-t border-emerald-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                      {/* Difficulty Tabs */}
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <button
+                          onClick={() => setExerciseDifficultyFilter('all')}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                            exerciseDifficultyFilter === 'all'
+                              ? 'bg-emerald-700 text-white shadow-xs'
+                              : isStudyMode ? themeClasses.badge : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          <span>الكل</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15">
+                            {totalExercises}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setExerciseDifficultyFilter('easy')}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                            exerciseDifficultyFilter === 'easy'
+                              ? 'bg-emerald-700 text-white shadow-xs'
+                              : isStudyMode ? themeClasses.badge : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          <span>سهل / تطبيقي</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15">
+                            {countEasy}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setExerciseDifficultyFilter('medium')}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                            exerciseDifficultyFilter === 'medium'
+                              ? 'bg-emerald-700 text-white shadow-xs'
+                              : isStudyMode ? themeClasses.badge : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          <span>متوسط / تدريبي</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15">
+                            {countMedium}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setExerciseDifficultyFilter('hard')}
+                          className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                            exerciseDifficultyFilter === 'hard'
+                              ? 'bg-emerald-700 text-white shadow-xs'
+                              : isStudyMode ? themeClasses.badge : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                          }`}
+                        >
+                          <span>مستوى بكالوريا / اختبار</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15">
+                            {countHard}
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Right toolbar buttons: Toggle all solutions & Print */}
+                      <div className="flex items-center gap-2 mr-auto">
+                        <button
+                          onClick={() => toggleAllSolutions(!allSolutionsRevealed)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            allSolutionsRevealed
+                              ? 'bg-slate-800 text-white hover:bg-slate-700'
+                              : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200'
+                          }`}
+                          title="كشف أو إخفاء الحلول النموذجية لكافة التمارين دفعة واحدة"
+                        >
+                          {allSolutionsRevealed ? (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span>إخفاء كافة الحلول</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>كشف كافة الحلول</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={handlePrint}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition"
+                          title="طباعة سلسلة التمارين مع حلولها أو حفظها كملف PDF"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">طباعة السلسلة / PDF</span>
+                          <span className="sm:hidden">طباعة</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Search bar within exercises */}
+                    <div className="mt-3 relative">
+                      <Search className="w-3.5 h-3.5 absolute right-3 top-3 text-slate-400" />
+                      <input
+                        type="text"
+                        value={exerciseSearchQuery}
+                        onChange={(e) => setExerciseSearchQuery(e.target.value)}
+                        placeholder="ابحث في نصوص التمارين، القوانين، أو الأسئلة..."
+                        className="w-full pl-9 pr-9 py-2 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-emerald-500"
+                      />
+                      {exerciseSearchQuery && (
+                        <button
+                          onClick={() => setExerciseSearchQuery('')}
+                          className="absolute left-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Empty state if filtered query matches nothing */}
+                  {filteredExercises.length === 0 && (
+                    <div className="p-8 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 space-y-3">
+                      <HelpCircle className="w-8 h-8 text-slate-400 mx-auto" />
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                        لا توجد تمارين تطابق معايير التصفية الحالية.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setExerciseDifficultyFilter('all');
+                          setExerciseSearchQuery('');
+                        }}
+                        className="px-4 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
+                      >
+                        إعادة ضبط التصفية وعرض جميع التمارين ({totalExercises})
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Exercises List */}
+                  <div className="space-y-6">
+                    {filteredExercises.map((ex, idx) => {
+                      const isSolutionShown = revealedSolutions[ex.id];
+                      const isHintShown = revealedHints[ex.id];
+                      const isSolved = solvedExercises[ex.id];
+
+                      // Color coding for difficulty badge
+                      const difficultyColorClass = ex.difficulty.includes('سهل')
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                        : ex.difficulty.includes('متوسط')
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                          : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300';
+
+                      return (
+                        <div 
+                          key={ex.id} 
+                          id={`exercise-card-${ex.id}`}
+                          className={`rounded-2xl border overflow-hidden shadow-xs transition-all ${
+                            isSolved ? 'ring-2 ring-emerald-500/40' : ''
+                          } ${
+                            isStudyMode ? themeClasses.card : 'bg-white border-slate-200'
+                          }`}
+                        >
+                          
+                          {/* Exercise Header */}
+                          <div className={`px-5 py-3.5 border-b flex flex-wrap items-center justify-between gap-3 ${
+                            isStudyMode ? themeClasses.innerHighlight : 'bg-slate-50 border-slate-200'
+                          }`}>
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-7 h-7 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center justify-center shadow-xs">
+                                {idx + 1}
+                              </span>
+                              <div>
+                                <span className="font-extrabold text-sm sm:text-base block">
+                                  {ex.title}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Difficulty Badge */}
+                              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${difficultyColorClass}`}>
+                                {ex.difficulty}
+                              </span>
+
+                              {/* Points Badge */}
+                              {ex.points && (
+                                <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                  {ex.points} نقاط
+                                </span>
+                              )}
+
+                              {/* Bac Year / Source Badge */}
+                              {ex.bacYear && (
+                                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+                                  {ex.bacYear}
+                                </span>
+                              )}
+
+                              {/* Student solved toggle action */}
+                              <button
+                                onClick={() => toggleExerciseSolved(ex.id)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                                  isSolved 
+                                    ? 'bg-emerald-600 text-white shadow-xs' 
+                                    : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-300 text-slate-700'
+                                }`}
+                                title="تحديد هذا التمرين كمكتمل بعد حله"
+                              >
+                                {isSolved ? (
+                                  <>
+                                    <CheckSquare className="w-3.5 h-3.5" />
+                                    <span>تم الحل ✓</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Square className="w-3.5 h-3.5" />
+                                    <span>حدّد كمنجز</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
 
-                          {/* Hint Accordion */}
-                          {ex.hint && (
-                            <div>
+                          {/* Question Statement */}
+                          <div className="p-5 space-y-4">
+                            <div className={`${fontClasses.body} whitespace-pre-line font-medium leading-relaxed`}>
+                              {ex.question}
+                            </div>
+
+                            {/* Copy Question & Hint Actions row */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                              {/* Hint Accordion */}
+                              {ex.hint ? (
+                                <div>
+                                  <button
+                                    onClick={() => toggleHint(ex.id)}
+                                    className="text-xs font-bold text-amber-600 hover:text-amber-500 flex items-center gap-1.5 transition"
+                                  >
+                                    <HelpCircle className="w-3.5 h-3.5" />
+                                    <span>{isHintShown ? 'إخفاء التلميح المنهجي' : '💡 هل تحتاج إلى تلميح منهجي لحل التمرين؟'}</span>
+                                  </button>
+                                  {isHintShown && (
+                                    <div className={`mt-2 p-3 rounded-xl border text-xs leading-relaxed animate-in fade-in ${
+                                      isStudyMode 
+                                        ? 'bg-amber-950/30 border-amber-900/50 text-amber-200' 
+                                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                                    }`}>
+                                      {ex.hint}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : <div />}
+
+                              {/* Copy question text button */}
                               <button
-                                onClick={() => toggleHint(ex.id)}
-                                className="text-xs font-bold text-amber-600 hover:text-amber-500 flex items-center gap-1.5 transition"
+                                onClick={() => handleCopyExercise(ex)}
+                                className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition py-1 px-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                                title="نسخ نص التمرين مع المعطيات للملاحظات أو الواجبات المنزلية"
                               >
-                                <HelpCircle className="w-3.5 h-3.5" />
-                                <span>{isHintShown ? 'إخفاء التلميح المنهجي' : '💡 هل تحتاج إلى تلميح لحل التمرين؟'}</span>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>نسخ نص التمرين</span>
                               </button>
-                              {isHintShown && (
-                                <div className={`mt-2 p-3 rounded-xl border text-xs leading-relaxed animate-in fade-in ${
+                            </div>
+
+                            {/* Tips */}
+                            {ex.tips && ex.tips.length > 0 && (
+                              <div className="space-y-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                                <span className="text-[11px] font-bold text-slate-500 block mb-1">
+                                  نصائح منهجية من لجان تصحيح البكالوريا:
+                                </span>
+                                {ex.tips.map((tip, tIdx) => (
+                                  <p key={tIdx} className={`text-xs flex items-center gap-1.5 ${
+                                    isStudyMode ? themeClasses.subtleText : 'text-slate-600 dark:text-slate-300'
+                                  }`}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                    <span>{tip}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Action: Reveal / Hide Solution */}
+                            <div className="pt-2">
+                              <button
+                                id={`toggle-solution-${ex.id}`}
+                                onClick={() => toggleSolution(ex.id)}
+                                className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition ${
+                                  isSolutionShown
+                                    ? isStudyMode 
+                                      ? 'bg-slate-800 text-slate-200' 
+                                      : 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                                    : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs'
+                                }`}
+                              >
+                                <Award className="w-4 h-4" />
+                                <span>{isSolutionShown ? 'إخفاء الحل النموذجي' : '✓ كشف الحل النموذجي المفصل والتنقيط الرسمي'}</span>
+                              </button>
+
+                              {/* Detailed Solution Box */}
+                              {isSolutionShown && (
+                                <div className={`mt-4 p-5 rounded-2xl border space-y-3 animate-in fade-in duration-200 ${
                                   isStudyMode 
-                                    ? 'bg-amber-950/30 border-amber-900/50 text-amber-200' 
-                                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                                    ? 'bg-emerald-950/20 border-emerald-900/50' 
+                                    : 'bg-emerald-50/50 border-emerald-200'
                                 }`}>
-                                  {ex.hint}
+                                  <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 font-black text-sm border-b pb-2 border-emerald-500/20">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <span>عناصر الإجابة النموذجية المعتمدة رسمياً:</span>
+                                    </div>
+                                    {ex.points && (
+                                      <span className="text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 px-2 py-0.5 rounded-md font-extrabold">
+                                        العلامة الكلية: {ex.points} / {ex.points}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {Array.isArray(ex.detailedSolution) ? (
+                                    <div className="space-y-3 pt-1">
+                                      {ex.detailedSolution.map((step, sIdx) => (
+                                        <div key={sIdx} className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/40 space-y-2 shadow-2xs">
+                                          <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                                            <div className="flex items-center gap-2">
+                                              <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] font-black flex items-center justify-center shrink-0">
+                                                {step.stepNumber}
+                                              </span>
+                                              <span className="font-extrabold text-sm">{step.stepTitle}</span>
+                                            </div>
+                                            {step.score && (
+                                              <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2.5 py-0.5 rounded-md text-[11px] font-black border border-emerald-300 dark:border-emerald-800">
+                                                العلامة: {step.score}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs sm:text-sm whitespace-pre-line leading-relaxed text-slate-800 dark:text-slate-200 font-medium">
+                                            {step.explanation}
+                                          </p>
+                                          {step.formulaUsed && (
+                                            <div className="text-xs font-mono bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg text-blue-700 dark:text-blue-300 border border-slate-200 dark:border-slate-700 dir-ltr text-left">
+                                              القانون المعتمد: {step.formulaUsed}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className={`${fontClasses.body} whitespace-pre-line font-medium leading-loose pt-1`}>
+                                      {ex.detailedSolution}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
-                          )}
 
-                          {/* Tips */}
-                          {ex.tips && ex.tips.length > 0 && (
-                            <div className="space-y-1">
-                              {ex.tips.map((tip, tIdx) => (
-                                <p key={tIdx} className={`text-xs flex items-center gap-1.5 ${
-                                  isStudyMode ? themeClasses.subtleText : 'text-slate-500'
-                                }`}>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                  <span>{tip}</span>
-                                </p>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Action: Reveal / Hide Solution */}
-                          <div className="pt-2">
-                            <button
-                              id={`toggle-solution-${ex.id}`}
-                              onClick={() => toggleSolution(ex.id)}
-                              className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition ${
-                                isSolutionShown
-                                  ? isStudyMode 
-                                    ? 'bg-slate-800 text-slate-200' 
-                                    : 'bg-slate-200 text-slate-800'
-                                  : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs'
-                              }`}
-                            >
-                              <Award className="w-4 h-4" />
-                              <span>{isSolutionShown ? 'إخفاء الحل النموذجي' : '✓ كشف الحل النموذجي المفصل والتنقيط'}</span>
-                            </button>
-
-                            {/* Detailed Solution Box */}
-                            {isSolutionShown && (
-                              <div className={`mt-4 p-5 rounded-2xl border space-y-3 animate-in fade-in duration-200 ${
-                                isStudyMode 
-                                  ? 'bg-emerald-950/20 border-emerald-900/50' 
-                                  : 'bg-emerald-50/50 border-emerald-200'
-                              }`}>
-                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-extrabold text-sm border-b pb-2 border-emerald-500/20">
-                                  <CheckCircle2 className="w-4 h-4" />
-                                  <span>عناصر الإجابة النموذجية المعتمدة رسمياً:</span>
-                                </div>
-                                {Array.isArray(ex.detailedSolution) ? (
-                                  <div className="space-y-3 pt-1">
-                                    {ex.detailedSolution.map((step, sIdx) => (
-                                      <div key={sIdx} className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/40 space-y-1.5 shadow-2xs">
-                                        <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[11px] font-extrabold flex items-center justify-center">
-                                              {step.stepNumber}
-                                            </span>
-                                            <span>{step.stepTitle}</span>
-                                          </div>
-                                          {step.score && (
-                                            <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded text-[11px] font-bold">
-                                              العلامة: {step.score}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="text-xs sm:text-sm whitespace-pre-line leading-relaxed text-slate-800 dark:text-slate-200">
-                                          {step.explanation}
-                                        </p>
-                                        {step.formulaUsed && (
-                                          <div className="text-xs font-mono bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded text-blue-700 dark:text-blue-300 border border-slate-200 dark:border-slate-700">
-                                            القانون المعتمد: {step.formulaUsed}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className={`${fontClasses.body} whitespace-pre-line font-medium leading-loose`}>
-                                    {ex.detailedSolution}
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
 
                         </div>
+                      );
+                    })}
+                  </div>
 
-                      </div>
-                    );
-                  })}
                 </div>
-
-              </div>
-            )}
+              );
+            })()}
 
             {/* ================================================== */}
             {/* TAB 4: INTERACTIVE EVALUATION QUIZ (اختبار تقييمي) */}

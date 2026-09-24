@@ -440,15 +440,15 @@ export function generateSmartQuestionsForLesson(lesson: Lesson): QuizQuestion[] 
     const mainObj = lesson.objectives[0];
     qList.push({
       id: `smart_obj_${lesson.id}_1`,
-      question: `وفقاً للمنهاج الدراسي، ما هو الهدف التعليمي الأساسي من درس "${title}" ؟`,
+      question: `وفقاً للمنهاج الدراسي الرسمي، ما هو الهدف التعليمي الأساسي من درس "${title}" ؟`,
       options: [
         mainObj,
-        'حفظ التعاريف النظرية دون تطبيق على التمارين العملية',
-        'دراسة تاريخ نشأة العلم في القرون الوسطى فقط',
-        'تجاهل القوانين الرياضية والاعتماد على التخمين'
+        'حفظ القوانين دون فهم طريقة تطبيقها في التمارين والمسائل',
+        'دراسة النظريات القديمة وتجاهل التطبيقات المعاصرة في الامتحانات',
+        'تجاهل الشروط النظامية والاعتماد على التخمين العشوائي'
       ],
       correctIndex: 0,
-      explanation: `الهدف المحوري المحدد في المنهاج الرسمي هو: ${mainObj}.`
+      explanation: `الهدف المحوري المحدد في المنهاج البيداغوجي الرسمي هو: ${mainObj}.`
     });
   }
 
@@ -456,8 +456,8 @@ export function generateSmartQuestionsForLesson(lesson: Lesson): QuizQuestion[] 
   if (lesson.writtenSummary.keyTerms && lesson.writtenSummary.keyTerms.length > 0) {
     const firstTerm = lesson.writtenSummary.keyTerms[0];
     const secondTerm = lesson.writtenSummary.keyTerms[1] || {
-      term: 'المفهوم المساعد',
-      definition: 'قاعدة تطبيقية مساعدة'
+      term: 'المفهوم البيداغوجي المساعد',
+      definition: 'قاعدة تطبيقية إجرائية معتمدة في حل المسائل'
     };
 
     qList.push({
@@ -472,6 +472,22 @@ export function generateSmartQuestionsForLesson(lesson: Lesson): QuizQuestion[] 
       correctIndex: 0,
       explanation: `المصطلح "${firstTerm.term}" يُعرّف بدقة علمية بأنه: ${firstTerm.definition}.`
     });
+
+    if (lesson.writtenSummary.keyTerms.length > 1) {
+      const term2 = lesson.writtenSummary.keyTerms[1];
+      qList.push({
+        id: `smart_term2_${lesson.id}_2b`,
+        question: `في محور المصطلحات والمفاهيم، ما هو مدلول: "${term2.term}" ؟`,
+        options: [
+          term2.definition,
+          'علاقة عكسية تنفي النتيجة السابقة',
+          'فرضية تجريبية غير مثبتة في المنهاج',
+          'معيار شكلي لا يؤثر على صحة الاستدلال'
+        ],
+        correctIndex: 0,
+        explanation: `يُقصد بـ "${term2.term}" علمياً: ${term2.definition}.`
+      });
+    }
   }
 
   // 3. Section rules / formulas question
@@ -511,7 +527,27 @@ export function generateSmartQuestionsForLesson(lesson: Lesson): QuizQuestion[] 
     }
   }
 
-  // 4. Mindmap or conclusion question
+  // 4. Important Notes / Common errors
+  const sectionWithNotes = lesson.writtenSummary.sections.find(
+    s => s.importantNotes && s.importantNotes.length > 0
+  );
+  if (sectionWithNotes && sectionWithNotes.importantNotes && sectionWithNotes.importantNotes.length > 0) {
+    const note = sectionWithNotes.importantNotes[0];
+    qList.push({
+      id: `smart_note_${lesson.id}_3b`,
+      question: `ما هو التنبيه البيداغوجي الحاسم الذي يحذر منه الأساتذة في "${sectionWithNotes.title}" ؟`,
+      options: [
+        note,
+        'عدم استعمال الآلة الحاسبة في أي مرحلة',
+        'تجاهل كتابة الوحدات الدولية في النتيجة النهائية',
+        'حفظ الأعداد دون فهم مغزاها الفيزيائي أو الرياضي'
+      ],
+      correctIndex: 0,
+      explanation: `التنبيه الرسمي لتفادي الأخطاء الشائعة: ${note}.`
+    });
+  }
+
+  // 5. Mindmap or conclusion question
   if (lesson.writtenSummary.mindMapPoints && lesson.writtenSummary.mindMapPoints.length > 0) {
     const keyPoint = lesson.writtenSummary.mindMapPoints[0];
     qList.push({
@@ -528,56 +564,82 @@ export function generateSmartQuestionsForLesson(lesson: Lesson): QuizQuestion[] 
     });
   }
 
-  // 5. Subject specific fallback question
-  if (qList.length < 4) {
-    let qSubject = 'ما هي الخطوة الحاسمة لتحقيق أعلى علامة في هذا الموضوع في الامتحان أو البكالوريا؟';
-    let qAns = 'فهم التعريف، استخراج المعطيات بدقة، تطبيق القانون بالوحدات الدولية، وصياغة تعليل منطقي سليم.';
-    
-    if (subj.includes('math')) {
-      qSubject = 'عند دراسة سلوك الدوال والعبارات الرياضية في هذا الدرس، ما هو الإجراء الإلزامي قبل الحساب؟';
-      qAns = 'تحديد مجموعة التعريف بدقة وشروط قابلية الاشتقاق أو مجالات دراسة الإشارة.';
-    } else if (subj.includes('phys')) {
-      qSubject = 'في مادة العلوم الفيزيائية، ما هو الشرط الضروري لقبول العلاقات والقوانين عند التطبيق العددي؟';
-      qAns = 'التأكد من التوافق البعدي والتحويل الصارم لجميع المقادير إلى جملة الوحدات الدولية (S.I).';
-    } else if (subj.startsWith('science_') || subj.includes('طبيع') || subj.includes('snv')) {
-      qSubject = 'في مادة علوم الطبيعة والحياة، كيف يجب تقديم الإجابة على أسئلة الاستدلال العلمي والتحليل؟';
-      qAns = 'التعريف بالوثيقة، استخراج الملاحظات والدلالات، وإبراز العلاقة السببية وصولاً إلى الاستنتاج.';
-    } else if (subj.includes('philo')) {
-      qSubject = 'في المقال الفلسفي المتعلق بهذا الموضوع، ما هي المنهجية المتبعة لبناء أطروحة مقنعة؟';
-      qAns = 'عرض الموقف، الحجج المنطقية، الاستشهاد بأقوال الفلاسفة الموثقة، ثم النقد والمناقشة.';
-    } else if (subj.includes('arab') || subj.includes('أدب')) {
-      qSubject = 'في مادة اللغة العربية وآدابها، ما هو المعيار الأساسي للإجابة في أسئلة البناء الفكري واللغوي؟';
-      qAns = 'فهم المعنى العام، التعليل المباشر من النص، وتحديد نوع وحكم الظاهرة اللغوية أو البيانية بدقة.';
-    } else if (subj.includes('islam')) {
-      qSubject = 'في مادة العلوم الإسلامية، ما هو الضابط المنهجي في الاستدلال واستخراج الأحكام والفوائد؟';
-      qAns = 'الاستناد إلى النصوص الشرعية الصحيحة (القرآن والسنة) وربطها بالمقصد الشرعي وحكمة التشريع.';
-    } else if (subj.includes('hist') || subj.includes('geog')) {
-      qSubject = 'في مادة التاريخ والجغرافيا، ما هي المنهجية المعتمدة لتحقيق العلامة الكاملة في المقال والمصطلحات؟';
-      qAns = 'مقدمة بإشكالية، الإجابة على شكل عناصر واضحة بالأرقام والتواريخ الدقيقة، وخاتمة كاستنتاج تاريخي.';
-    }
-
+  // 6. Advice & exam methodology question
+  if (lesson.writtenSummary.conclusionOrAdvice) {
     qList.push({
-      id: `smart_gen_${lesson.id}_5`,
-      question: qSubject,
+      id: `smart_advice_${lesson.id}_5a`,
+      question: `ما هي نصيحة الأستاذ الذهبية للتحضير للامتحانات في درس "${title}" ؟`,
       options: [
-        qAns,
-        'الاكتفاء بكتابة النتيجة النهائية دون تبرير أو منهجية',
-        'الاعتماد على الحدس التخميني لتوفير الوقت',
-        'تكرار نص السؤال كما هو في ورقة الإجابة'
+        lesson.writtenSummary.conclusionOrAdvice,
+        'الاكتفاء بقراءة الملخص شفوياً دون محاولة الحل الفردي على المسودة',
+        'التركيز على المواضيع القديمة فقط وإهمال بناء المفاهيم الحديثة',
+        'تضييع الوقت في استذكار التواريخ والأرقام غير المطلوبة'
       ],
       correctIndex: 0,
-      explanation: `المنهجية الرسمية المعتمدة في تصحيح وزارة التربية تؤكد على: ${qAns}`
+      explanation: `النصيحة البيداغوجية المعتمدة هي: ${lesson.writtenSummary.conclusionOrAdvice}.`
     });
   }
+
+  // 7. Subject specific fallback question
+  let qSubject = 'ما هي الخطوة الحاسمة لتحقيق أعلى علامة في هذا الموضوع في الامتحان أو البكالوريا؟';
+  let qAns = 'فهم التعريف، استخراج المعطيات بدقة، تطبيق القانون بالوحدات الدولية، وصياغة تعليل منطقي سليم.';
+  
+  if (subj.includes('math')) {
+    qSubject = 'عند دراسة سلوك الدوال والعبارات الرياضية في هذا الدرس، ما هو الإجراء الإلزامي قبل الحساب؟';
+    qAns = 'تحديد مجموعة التعريف بدقة وشروط قابلية الاشتقاق أو مجالات دراسة الإشارة.';
+  } else if (subj.includes('phys')) {
+    qSubject = 'في مادة العلوم الفيزيائية، ما هو الشرط الضروري لقبول العلاقات والقوانين عند التطبيق العددي؟';
+    qAns = 'التأكد من التوافق البعدي والتحويل الصارم لجميع المقادير إلى جملة الوحدات الدولية (S.I).';
+  } else if (subj.startsWith('science_') || subj.includes('طبيع') || subj.includes('snv')) {
+    qSubject = 'في مادة علوم الطبيعة والحياة، كيف يجب تقديم الإجابة على أسئلة الاستدلال العلمي والتحليل؟';
+    qAns = 'التعريف بالوثيقة، استخراج الملاحظات والدلالات، وإبراز العلاقة السببية وصولاً إلى الاستنتاج.';
+  } else if (subj.includes('philo')) {
+    qSubject = 'في المقال الفلسفي المتعلق بهذا الموضوع، ما هي المنهجية المتبعة لبناء أطروحة مقنعة؟';
+    qAns = 'عرض الموقف، الحجج المنطقية، الاستشهاد بأقوال الفلاسفة الموثقة، ثم النقد والمناقشة.';
+  } else if (subj.includes('arab') || subj.includes('أدب')) {
+    qSubject = 'في مادة اللغة العربية وآدابها، ما هو المعيار الأساسي للإجابة في أسئلة البناء الفكري واللغوي؟';
+    qAns = 'فهم المعنى العام، التعليل المباشر من النص، وتحديد نوع وحكم الظاهرة اللغوية أو البيانية بدقة.';
+  } else if (subj.includes('islam')) {
+    qSubject = 'في مادة العلوم الإسلامية، ما هو الضابط المنهجي في الاستدلال واستخراج الأحكام والفوائد؟';
+    qAns = 'الاستناد إلى النصوص الشرعية الصحيحة (القرآن والسنة) وربطها بالمقصد الشرعي وحكمة التشريع.';
+  } else if (subj.includes('hist') || subj.includes('geog')) {
+    qSubject = 'في مادة التاريخ والجغرافيا، ما هي المنهجية المعتمدة لتحقيق العلامة الكاملة في المقال والمصطلحات؟';
+    qAns = 'مقدمة بإشكالية، الإجابة على شكل عناصر واضحة بالأرقام والتواريخ الدقيقة، وخاتمة كاستنتاج تاريخي.';
+  }
+
+  qList.push({
+    id: `smart_gen_${lesson.id}_6`,
+    question: qSubject,
+    options: [
+      qAns,
+      'الاكتفاء بكتابة النتيجة النهائية دون تبرير أو منهجية',
+      'الاعتماد على الحدس التخميني لتوفير الوقت',
+      'تكرار نص السؤال كما هو في ورقة الإجابة'
+    ],
+    correctIndex: 0,
+    explanation: `المنهجية الرسمية المعتمدة في تصحيح وزارة التربية تؤكد على: ${qAns}`
+  });
 
   return qList;
 }
 
 // Master function to obtain quiz for ANY lesson
 export function getLessonQuiz(lesson: Lesson): QuizQuestion[] {
+  const combined: QuizQuestion[] = [];
+  const seenQuestions = new Set<string>();
+
+  const addQuestion = (q: QuizQuestion) => {
+    if (!q || !q.question) return;
+    const key = q.question.trim().toLowerCase();
+    if (!seenQuestions.has(key)) {
+      seenQuestions.add(key);
+      combined.push(q);
+    }
+  };
+
   // 1. If the lesson already has explicit questions defined in its data object
   if (lesson.quiz && lesson.quiz.length > 0) {
-    return lesson.quiz;
+    lesson.quiz.forEach(addQuestion);
   }
 
   // 2. Check topic-level curated quizzes
@@ -585,96 +647,67 @@ export function getLessonQuiz(lesson: Lesson): QuizQuestion[] {
   const unit = (lesson.unitTitle || '').toLowerCase();
   const subj = (lesson.subjectId || '').toLowerCase();
 
+  let topicQuestions: QuizQuestion[] | undefined;
+
   // Math 3AS
   if (subj.includes('math_3as')) {
     if (title.includes('أسية') || title.includes('دوال أسية') || unit.includes('أسية')) {
-      return SUBJECT_TOPIC_QUIZZES['3as_math_exp'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_math_exp'];
+    } else if (title.includes('لوغاريتم') || title.includes('لوغاريتمية') || unit.includes('لوغاريتم')) {
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_math_ln'];
+    } else if (title.includes('متتالي') || title.includes('تراجع') || unit.includes('متتالي')) {
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_math_sequences'];
     }
-    if (title.includes('لوغاريتم') || title.includes('لوغاريتمية') || unit.includes('لوغاريتم')) {
-      return SUBJECT_TOPIC_QUIZZES['3as_math_ln'];
-    }
-    if (title.includes('متتالي') || title.includes('تراجع') || unit.includes('متتالي')) {
-      return SUBJECT_TOPIC_QUIZZES['3as_math_sequences'];
-    }
-  }
-
-  // Physics 3AS
-  if (subj.includes('physics_3as')) {
+  } else if (subj.includes('physics_3as')) {
     if (title.includes('حركية') || title.includes('متابعة زمنية') || title.includes('أكسدة') || unit.includes('متابعة')) {
-      return SUBJECT_TOPIC_QUIZZES['3as_phys_kinetics'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_phys_kinetics'];
+    } else if (title.includes('ميكانيك') || title.includes('نيوتن') || title.includes('قمر') || title.includes('كبلر') || unit.includes('ميكانيك')) {
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_phys_mechanics'];
     }
-    if (title.includes('ميكانيك') || title.includes('نيوتن') || title.includes('قمر') || title.includes('كبلر') || unit.includes('ميكانيك')) {
-      return SUBJECT_TOPIC_QUIZZES['3as_phys_mechanics'];
-    }
-  }
-
-  // Science 3AS
-  if (subj.includes('science_3as')) {
+  } else if (subj.includes('science_3as')) {
     if (title.includes('بروتين') || title.includes('استنساخ') || title.includes('ترجمة') || title.includes('إنزيم')) {
-      return SUBJECT_TOPIC_QUIZZES['3as_sci_protein'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_sci_protein'];
     }
-  }
-
-  // Philosophy 3AS
-  if (subj.includes('philo')) {
-    return SUBJECT_TOPIC_QUIZZES['3as_philo_science'];
-  }
-
-  // Islamic Studies
-  if (subj.includes('islamic')) {
-    return SUBJECT_TOPIC_QUIZZES['islamic_sharia_purposes'];
-  }
-
-  // History & Geography
-  if (subj.includes('history')) {
-    return SUBJECT_TOPIC_QUIZZES['history_revolution'];
-  }
-
-  // Arabic
-  if (subj.includes('arabic')) {
-    return SUBJECT_TOPIC_QUIZZES['arabic_literature'];
-  }
-
-  // 2AS Math
-  if (subj.includes('math_2as')) {
+  } else if (subj.includes('philo')) {
+    topicQuestions = SUBJECT_TOPIC_QUIZZES['3as_philo_science'];
+  } else if (subj.includes('islamic')) {
+    topicQuestions = SUBJECT_TOPIC_QUIZZES['islamic_sharia_purposes'];
+  } else if (subj.includes('history')) {
+    topicQuestions = SUBJECT_TOPIC_QUIZZES['history_revolution'];
+  } else if (subj.includes('arabic')) {
+    topicQuestions = SUBJECT_TOPIC_QUIZZES['arabic_literature'];
+  } else if (subj.includes('math_2as')) {
     if (title.includes('كثيرات حدود') || title.includes('درجة ثانية')) {
-      return SUBJECT_TOPIC_QUIZZES['2as_math_polynomials'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['2as_math_polynomials'];
     }
-  }
-
-  // 2AS Physics
-  if (subj.includes('physics_2as')) {
+  } else if (subj.includes('physics_2as')) {
     if (title.includes('طاقة حركية') || title.includes('عمل') || title.includes('ثقل')) {
-      return SUBJECT_TOPIC_QUIZZES['2as_phys_work_energy'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['2as_phys_work_energy'];
     }
-  }
-
-  // 2AS Science
-  if (subj.includes('science_2as')) {
+  } else if (subj.includes('science_2as')) {
     if (title.includes('منعكس') || title.includes('مشبك') || title.includes('عصبي')) {
-      return SUBJECT_TOPIC_QUIZZES['2as_sci_nervous'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['2as_sci_nervous'];
     }
-  }
-
-  // 1AS Math
-  if (subj.includes('math_1as')) {
+  } else if (subj.includes('math_1as')) {
     if (title.includes('شعاع') || title.includes('مستقيم') || title.includes('تحليلية')) {
-      return SUBJECT_TOPIC_QUIZZES['1as_math_vectors'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['1as_math_vectors'];
     }
-  }
-
-  // 1AS Physics
-  if (subj.includes('physics_1as')) {
+  } else if (subj.includes('physics_1as')) {
     if (title.includes('عطالة') || title.includes('قوة') || title.includes('سرعة')) {
-      return SUBJECT_TOPIC_QUIZZES['1as_phys_inertial'];
+      topicQuestions = SUBJECT_TOPIC_QUIZZES['1as_phys_inertial'];
     }
+  } else if (subj.includes('tech_1as')) {
+    topicQuestions = SUBJECT_TOPIC_QUIZZES['1as_tech_logic'];
   }
 
-  // 1AS Tech
-  if (subj.includes('tech_1as')) {
-    return SUBJECT_TOPIC_QUIZZES['1as_tech_logic'];
+  if (topicQuestions) {
+    topicQuestions.forEach(addQuestion);
   }
 
-  // 3. Fallback: generate curriculum-anchored questions using lesson metadata
-  return generateSmartQuestionsForLesson(lesson);
+  // 3. Fallback and enrich with smart curriculum questions
+  const smartQuestions = generateSmartQuestionsForLesson(lesson);
+  smartQuestions.forEach(addQuestion);
+
+  // Return at least all combined (usually 5 to 10 questions)
+  return combined.length > 0 ? combined : smartQuestions;
 }

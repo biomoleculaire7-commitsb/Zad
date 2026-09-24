@@ -97,6 +97,27 @@ export interface QuizQuestion {
   explanation: string;
 }
 
+export interface ExamExercisePart {
+  number: number;
+  title: string;
+  points: number;
+  statement: string;
+  solution: string | SolutionStep[];
+  tips?: string[];
+}
+
+export interface OfficialExam {
+  id: string;
+  title: string;
+  type: 'فرض محروس' | 'اختبار فصلي' | 'بكالوريا تجريبية';
+  duration: string;
+  totalPoints: number;
+  trimester?: 1 | 2 | 3;
+  instructions?: string[];
+  exercises: ExamExercisePart[];
+  officialNotes?: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
@@ -113,6 +134,7 @@ export interface Lesson {
   writtenSummary: WrittenSummary;
   exercises: Exercise[];
   quiz?: QuizQuestion[];
+  exams?: OfficialExam[];
 }
 
 export interface UserProgress {

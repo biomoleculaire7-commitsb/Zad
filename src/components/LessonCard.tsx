@@ -125,7 +125,7 @@ export const LessonCard: React.FC<LessonCardProps> = ({
             <span>
               {progress.quizScores && progress.quizScores[lesson.id]
                 ? `اختبار تقييمي (${progress.quizScores[lesson.id].percentage}%)`
-                : 'اختبار تقييمي'}
+                : `فروض واختبارات (${lesson.exams?.length || 2} مواضيع)`}
             </span>
           </span>
         </div>
@@ -156,16 +156,16 @@ export const LessonCard: React.FC<LessonCardProps> = ({
             title="تمارين تطبيقية مع الحل النموذجي"
           >
             <Award className="w-3.5 h-3.5 shrink-0" />
-            <span>تمارين وحلول</span>
+            <span>{lesson.exercises.length} تمارين محلولة</span>
           </button>
 
           <button
             onClick={() => onOpenLesson(lesson, 'quiz')}
             className="flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold transition border border-purple-200/60 shadow-2xs"
-            title="إجراء الاختبار التقييمي التفاعلي مع تصحيح فوري ونتائج"
+            title="إجراء الاختبار التقييمي التفاعلي أو خوض الفروض الرسمية 20/20"
           >
             <HelpCircle className="w-3.5 h-3.5 shrink-0 text-purple-600" />
-            <span>اختبار تقييمي</span>
+            <span>فروض واختبارات</span>
           </button>
         </div>
 

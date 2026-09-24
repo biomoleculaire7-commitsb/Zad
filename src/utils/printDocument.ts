@@ -1,4 +1,4 @@
-import { Lesson } from '../types';
+import { Lesson, OfficialExam } from '../types';
 
 /**
  * Builds a clean, fully-styled, standalone printable HTML document
@@ -668,6 +668,206 @@ export function executePrintLesson(lesson: Lesson): { success: boolean; method: 
     return { success: true, method: 'download' };
   } catch (downloadErr) {
     console.error('Failed to trigger download:', downloadErr);
+    return { success: false, method: 'download' };
+  }
+}
+
+/**
+ * Builds an official examination printable HTML document matching
+ * Algerian Ministry of National Education examination formatting standards.
+ */
+export function generatePrintableExamHtml(exam: OfficialExam, lessonTitle: string): string {
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>${exam.title} - اختبار رسمي</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+      background: #ffffff;
+      color: #111827;
+      line-height: 1.6;
+      font-size: 13pt;
+      padding: 15mm;
+    }
+    @media print {
+      body { padding: 0; font-size: 11pt; }
+      .page-break { page-break-before: always; }
+      .no-print-bar { display: none !important; }
+      @page { size: A4; margin: 15mm; }
+    }
+    .no-print-bar {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .print-btn {
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .exam-header {
+      border: 2px solid #0f172a;
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      text-align: center;
+      background: #f8fafc;
+    }
+    .republic-title { font-size: 14pt; font-weight: 800; }
+    .ministry-title { font-size: 12pt; font-weight: bold; color: #334155; margin-bottom: 8px; }
+    .exam-main-title { font-size: 16pt; font-weight: 900; color: #047857; margin: 6px 0; }
+    .exam-meta-grid {
+      display: flex;
+      justify-content: space-around;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 8px;
+      margin-top: 8px;
+      font-size: 11pt;
+      font-weight: bold;
+    }
+    .instructions-box {
+      background: #fef3c7;
+      border: 1px solid #f59e0b;
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 10.5pt;
+    }
+    .exercise-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    .exercise-head {
+      background: #0f172a;
+      color: white;
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 12pt;
+    }
+    .exercise-body { padding: 16px; font-size: 12pt; white-space: pre-line; }
+    .solution-block {
+      background: #f0fdf4;
+      border-top: 2px dashed #86efac;
+      padding: 14px 16px;
+    }
+    .solution-title { font-weight: 900; color: #166534; margin-bottom: 8px; font-size: 12pt; }
+    .step-item {
+      background: white;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+    }
+    .step-head { display: flex; justify-content: space-between; font-weight: bold; color: #15803d; }
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <div><strong>منصة زاد التعليمية</strong> — موضوع امتحان / فرض رسمي للطباعة</div>
+    <button class="print-btn" onclick="window.print()">🖨️ طباعة الآن / حفظ كـ PDF</button>
+  </div>
+
+  <div class="exam-header">
+    <div class="republic-title">الجمهورية الجزائرية الديمقراطية الشعبية</div>
+    <div class="ministry-title">وزارة التربية الوطنية — منصة زاد للتعليم الثانوي الجزائري</div>
+    <div class="exam-main-title">${exam.title}</div>
+    <div style="font-size: 11pt; color: #475569;">الموضوع المعتمد لدرس: ${lessonTitle}</div>
+    <div class="exam-meta-grid">
+      <span>نوع الموضوع: ${exam.type}</span>
+      <span>المدة الزمنية: ${exam.duration}</span>
+      <span>العلامة الكاملة: ${exam.totalPoints} / 20</span>
+    </div>
+  </div>
+
+  ${exam.instructions && exam.instructions.length > 0 ? `
+    <div class="instructions-box">
+      <strong>⚠️ تعليمات هامة للمترشح:</strong>
+      <ul style="padding-right: 20px; margin-top: 4px;">
+        ${exam.instructions.map(inst => `<li>${inst}</li>`).join('')}
+      </ul>
+    </div>
+  ` : ''}
+
+  ${exam.exercises.map((ex, idx) => `
+    <div class="exercise-box">
+      <div class="exercise-head">
+        <span>${ex.title}</span>
+        <span>(${ex.points} نقاط)</span>
+      </div>
+      <div class="exercise-body">${ex.statement.replace(/\n/g, '<br/>')}</div>
+      <div class="solution-block">
+        <div class="solution-title">✅ عناصر الإجابة الرسمية وسلم التنقيط:</div>
+        ${Array.isArray(ex.solution) ? ex.solution.map(s => `
+          <div class="step-item">
+            <div class="step-head">
+              <span>المرحلة ${s.stepNumber}: ${s.stepTitle}</span>
+              ${s.score ? `<span style="background: #dcfce7; padding: 2px 6px; border-radius: 4px;">${s.score}</span>` : ''}
+            </div>
+            <div style="margin-top: 4px; font-size: 11pt;">${s.explanation.replace(/\n/g, '<br/>')}</div>
+            ${s.formulaUsed ? `<div style="font-family: monospace; font-size: 10pt; color: #2563eb; margin-top: 4px;">القانون: ${s.formulaUsed}</div>` : ''}
+          </div>
+        `).join('') : `<div>${ex.solution}</div>`}
+      </div>
+    </div>
+  `).join('')}
+
+  <div style="text-align: center; margin-top: 30px; font-size: 10pt; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+    تم إعداد واستخراج هذا الموضوع الرسمي عبر <strong>«منصة زاد التعليمية للثانوي الجزائري»</strong> — بالتوفيق والنجاح لجميع التلاميذ.
+  </div>
+
+  <script>
+    window.addEventListener('load', function() {
+      if (!window.matchMedia('print').matches) {
+        setTimeout(function() { window.print(); }, 400);
+      }
+    });
+  </script>
+</body>
+</html>`;
+}
+
+export function executePrintExam(exam: OfficialExam, lessonTitle: string): { success: boolean; method: 'popup' | 'download' } {
+  const htmlContent = generatePrintableExamHtml(exam, lessonTitle);
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  try {
+    const printWindow = window.open(blobUrl, '_blank');
+    if (printWindow) {
+      return { success: true, method: 'popup' };
+    }
+  } catch (err) {
+    console.warn('Popup blocked, falling back to download:', err);
+  }
+
+  try {
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `موضوع_${exam.title.replace(/[/\\?%*:|"<>]/g, '_')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return { success: true, method: 'download' };
+  } catch (downloadErr) {
     return { success: false, method: 'download' };
   }
 }

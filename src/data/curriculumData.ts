@@ -1,5 +1,7 @@
 import { GradeId, StreamId, Subject, Lesson } from '../types';
 import { sanitizeVideoResource } from '../utils/videoResolver';
+import { getExtraExercisesForLesson } from './exercises';
+import { getOfficialExamsForLesson } from './examsData';
 import { GRADES, STREAMS, SUBJECTS_MAP } from './gradesAndStreams';
 import { LESSONS_DATABASE } from './lessonsData';
 import { EXTRA_LESSONS } from './extraLessonsData';
@@ -44,9 +46,21 @@ RAW_ALL_LESSONS.forEach(lesson => {
     const sanitizedVideos = (lesson.videoResources || []).map(vid => 
       sanitizeVideoResource(vid, lesson.title, lesson.subjectId)
     );
+
+    // Merge base exercises with tailored comprehensive exercises bank
+    const baseExercises = lesson.exercises || [];
+    const extraExercises = getExtraExercisesForLesson(lesson);
+    const existingExIds = new Set(baseExercises.map(e => e.id));
+    const combinedExercises = [
+      ...baseExercises,
+      ...extraExercises.filter(e => !existingExIds.has(e.id))
+    ];
+
     lessonMap.set(lesson.id, {
       ...lesson,
       videoResources: sanitizedVideos,
+      exercises: combinedExercises,
+      exams: getOfficialExamsForLesson(lesson),
     });
   }
 });
