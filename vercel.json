@@ -1,16 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/ads.txt",
-      "destination": "/ads.txt"
-    },
-    {
-      "source": "/robots.txt",
-      "destination": "/robots.txt"
-    },
-    {
-      "source": "/((?!ads\\.txt|robots\\.txt).* )",
-      "destination": "/index.html"
+      "source": "/ea9f4c5989865ad6fb45.txt",
+      "destination": "/ea9f4c5989865ad6fb45.txt"
     }
   ]
 }
